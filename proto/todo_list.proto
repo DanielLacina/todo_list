@@ -1,0 +1,26 @@
+syntax = "proto3";
+package todo_list;
+
+service TodoList {
+   rpc AddEvent(TodoListEvent) returns(TodoListKV); 
+   rpc RemoveEvent(TodoListTimestamp) returns(TodoListResponse);
+   rpc GetEvent(TodoListTimestamp) returns(TodoListKV);
+}
+
+message TodoListKV {
+  string timestamp = 1;
+  string event = 2;
+} 
+
+message TodoListEvent {
+  string event = 1;  
+}
+
+message TodoListTimestamp {
+  string timestamp = 1;
+}
+
+message TodoListResponse {
+  string status = 1;
+}
+
