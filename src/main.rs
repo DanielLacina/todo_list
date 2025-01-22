@@ -90,6 +90,36 @@ mod tests {
         TodoListService::<MockDatabase>::default()
     }
 
+    fn unwrap_response<T: Clone>(response: Result<tonic::Response<T>, tonic::Status>) -> T {
+        response.unwrap().get_ref().clone()
+    }
+
+    async fn add_event(
+        todo_list_service: &TodoListService<MockDatabase>,
+        event: &str,
+    ) -> proto::TodoListKv {
+        unwrap_response(
+            todo_list_service
+                .add_event(tonic::Request::new(proto::TodoListEvent {
+                    event: event.to_string(),
+                }))
+                .await,
+        )
+    }
+
+    async fn get_event(
+        todo_list_service: &TodoListService<MockDatabase>,
+        timestamp: &str,
+    ) -> proto::TodoListKv {
+        unwrap_response(
+            todo_list_service
+                .get_event(tonic::Request::new(proto::TodoListTimestamp {
+                    timestamp: timestamp.to_string(),
+                }))
+                .await,
+        )
+    }
+
     #[tokio::test]
     async fn test_add_event() {
         let todo_list_service = todo_list_service();
@@ -98,18 +128,32 @@ mod tests {
             .add_event(tonic::Request::new(proto::TodoListEvent {
                 event: event.clone(),
             }))
-            .await
-            .unwrap()
-            .get_ref()
-            .clone();
+            .await;
+        assert!(add_event_response.is_ok());
+        let get_event_response = get_event(
+            &todo_list_service,
+            &unwrap_response(add_event_response).timestamp,
+        )
+        .await;
+        assert_eq!(get_event_response.event, event);
+    }
+
+    #[tokio::test]
+    async fn test_remove_event() {
+        let todo_list_service = todo_list_service();
+        let event = String::from("go to school");
+        let event_kv = add_event(&todo_list_service, &event).await;
+        let remove_event_response = todo_list_service
+            .remove_event(tonic::Request::new(proto::TodoListTimestamp {
+                timestamp: event_kv.timestamp.clone(),
+            }))
+            .await;
+        assert!(remove_event_response.is_ok());
         let get_event_response = todo_list_service
             .get_event(tonic::Request::new(proto::TodoListTimestamp {
-                timestamp: add_event_response.timestamp,
+                timestamp: event_kv.timestamp,
             }))
-            .await
-            .unwrap()
-            .get_ref()
-            .clone();
-        assert_eq!(get_event_response.event, event);
+            .await;
+        assert!(get_event_response.is_err())
     }
 }
